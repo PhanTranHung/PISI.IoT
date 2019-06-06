@@ -3,6 +3,7 @@
 #include <Adafruit_MLX90614.h>
 #include <Wire.h>
 #include <Adafruit_Fingerprint.h>
+#include <DS3231.h>
 
 #define DonVi 1
 #define Chuc 10
@@ -15,14 +16,20 @@ SoftwareSerial mySerial(2, 3);
 DFRobotDFPlayerMini myDFPlayer;
 Adafruit_MLX90614 mlx = Adafruit_MLX90614();
 Adafruit_Fingerprint finger = Adafruit_Fingerprint(&mySerial);
+DS3231 Clock;
 
 double ambientTempC, objectTempC;
 int btnPress = 4;
+bool Century=false;
+bool h12;
+bool PM;
+byte ADay, AHour, AMinute, ASecond, ABits;
+bool ADy, A12h, Apm;
 
 void setup() {
   // put your setup code here, to run once:
   
-  
+  Wire.begin();
   mlx.begin();
   Serial.begin(115200);
   Serial.println("Initializing DFPlayer ... (May take 3~5 seconds)");
@@ -42,7 +49,9 @@ void loop() {
   objectTempC = mlx.readObjectTempC();
   ambientTempC = mlx.readAmbientTempC();
   
-  Serial.println(objectTempC);
+  showDateTimeNow();
+  
+  Serial.print(objectTempC); Serial.print("  amb"); Serial.println(ambientTempC);
   myDFPlayer.readState();
   readNumber(objectTempC);
 }
@@ -186,6 +195,124 @@ int getFingerprintIDez() {
   Serial.print("Found ID #"); Serial.print(finger.fingerID); 
   Serial.print(" with confidence of "); Serial.println(finger.confidence);
   return finger.fingerID; 
+}
+
+void showDateTimeNow(){
+  // send what's going on to the serial monitor.
+  // Start with the year
+  Serial.print("Year: 2");
+  if (Century) {      // Won't need this for 89 years.
+    Serial.print("1");
+  } else {
+    Serial.print("0");
+  }
+  Serial.print(Clock.getYear(), DEC);
+ 
+  // then the month
+  Serial.print("  Month:");
+  Serial.print(Clock.getMonth(Century), DEC);
+ 
+  // then the date
+  Serial.print("  Date:");
+  Serial.print(Clock.getDate(), DEC);
+ 
+ // and the day of the week
+  Serial.print("  Day of Week:");
+  Serial.print(Clock.getDoW(), DEC);
+  
+  // Finally the hour, minute, and second
+  Serial.print("  ");
+  Serial.print(Clock.getHour(h12, PM), DEC);
+  Serial.print("h  ");
+  Serial.print(Clock.getMinute(), DEC);
+  Serial.print("m  ");
+  Serial.print(Clock.getSecond(), DEC);
+  Serial.print("s  ");
+  // Add AM/PM indicator
+  if (h12) {
+    if (PM) {
+      Serial.print(" PM ");
+    } else {
+      Serial.print(" AM ");
+    }
+  } else {
+    Serial.print(" 24h ");
+  }
+  // Display the temperature
+  Serial.print("temp=");
+  Serial.print(Clock.getTemperature(), 2);
+  // Tell whether the time is (likely to be) valid
+  if (Clock.oscillatorCheck()) {
+    Serial.print(" O+");
+  } else {
+    Serial.print(" O-");
+  }
+  // Indicate whether an alarm went off
+  if (Clock.checkIfAlarm(1)) {
+    Serial.print(" A1!");
+  }
+  if (Clock.checkIfAlarm(2)) {
+    Serial.print(" A2!");
+  }
+  // New line on display
+  Serial.print('\n');
+  // Display Alarm 1 information
+  Serial.print("Alarm 1: ");
+  Clock.getA1Time(ADay, AHour, AMinute, ASecond, ABits, ADy, A12h, Apm);
+  Serial.print(ADay, DEC);
+  if (ADy) {
+    Serial.print(" DoW");
+  } else {
+    Serial.print(" Date");
+  }
+  Serial.print(' ');
+  Serial.print(AHour, DEC);
+  Serial.print(' ');
+  Serial.print(AMinute, DEC);
+  Serial.print(' ');
+  Serial.print(ASecond, DEC);
+  Serial.print(' ');
+  if (A12h) {
+    if (Apm) {
+      Serial.print('pm ');
+    } else {
+      Serial.print('am ');
+    }
+  }
+  if (Clock.checkAlarmEnabled(1)) {
+    Serial.print("enabled");
+  }
+  Serial.print('\n');
+  // Display Alarm 2 information
+  Serial.print("Alarm 2: ");
+  Clock.getA2Time(ADay, AHour, AMinute, ABits, ADy, A12h, Apm);
+  Serial.print(ADay, DEC);
+  if (ADy) {
+    Serial.print(" DoW");
+  } else {
+    Serial.print(" Date");
+  }
+  Serial.print(' ');
+  Serial.print(AHour, DEC);
+  Serial.print(' ');
+  Serial.print(AMinute, DEC);
+  Serial.print(' ');
+  if (A12h) {
+    if (Apm) {
+      Serial.print('pm');
+    } else {
+      Serial.print('am');
+    }
+  }
+  if (Clock.checkAlarmEnabled(2)) {
+    Serial.print("enabled");
+  }
+  // display alarm bits
+  Serial.print("\nAlarm bits: ");
+  Serial.print(ABits, BIN);
+
+  Serial.print('\n');
+  Serial.print('\n');
 }
 
 double findMod(double a, double b) { 
