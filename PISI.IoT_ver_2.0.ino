@@ -19,12 +19,14 @@ Adafruit_Fingerprint finger = Adafruit_Fingerprint(&mySerial);
 DS3231 Clock;
 
 double ambientTempC, objectTempC;
-int btnPress = 4;
+int btnPress = 6;
 bool Century=false;
 bool h12;
 bool PM;
 byte ADay, AHour, AMinute, ASecond, ABits;
 bool ADy, A12h, Apm;
+
+int users[] = {1, 7, 30, 70, 25, 10, 5, 64, 75, 82};
 
 void setup() {
   // put your setup code here, to run once:
@@ -35,7 +37,7 @@ void setup() {
   Serial.println("Initializing DFPlayer ... (May take 3~5 seconds)");
   
   startConnectToPlayer();
-  myDFPlayer.volume(15);  //Set volume value. From 0 to 30
+  myDFPlayer.volume(25);  //Set volume value. From 0 to 30
 
   startConnectToFingerprint();
 
@@ -44,7 +46,7 @@ void setup() {
 
 void loop() {
 
-  int user = waitForDetectFingerprint();
+  int idUser = waitForDetectFingerprint();
   
   objectTempC = mlx.readObjectTempC();
   ambientTempC = mlx.readAmbientTempC();
@@ -54,16 +56,55 @@ void loop() {
   Serial.print(objectTempC); Serial.print("  amb"); Serial.println(ambientTempC);
   myDFPlayer.readState();
   readNumber(objectTempC);
+  duaRaLoiKhuyen(getTypeUser(idUser), objectTempC);
+  
+}
+
+bool btnPressed(){
+  if (digitalRead(btnPress)) return true;
+  return false;
+}
+
+void readTempOnly(){
+  objectTempC = mlx.readObjectTempC();
+  myDFPlayer.readState();
+  readNumber(objectTempC);
+}
+
+void duaRaLoiKhuyen(int type, double objectTempC){
+
+//  switch(type){
+//    case 1:
+//  }
+  
+  if (objectTempC > 40) excuteRead(CauThoai, 8);
+  else if (objectTempC > 39.5) excuteRead(CauThoai, 6);
+  else if (objectTempC > 38) excuteRead(CauThoai, 7);
+}
+
+int getTypeUser(int id){
+
+  int ageOfUser = users[id - 1];
+  Serial.print("getTypeUser: "); Serial.println(ageOfUser);
+  if (ageOfUser > 65) return 4;
+  else if (ageOfUser > 11) return 3;
+  else if (ageOfUser > 3) return 2;
+  else if (ageOfUser > 0) return 1;
 }
 
 int waitForDetectFingerprint(){
   
-  startConnectToFingerprint();
+  listenFingerprint();
   int IdUser = -1;
   while(IdUser == -1){
     IdUser = getFingerprintIDez();
     Serial.println(IdUser);
-    delay(500);
+    
+    if(btnPressed()) {
+      readTempOnly();
+      listenFingerprint();
+    }
+    delay(50);
   }
   return IdUser;
 }
@@ -77,6 +118,14 @@ void startConnectToPlayer(){
     delay(1000);
   }
   Serial.println("DFPlayer Mini online.");
+}
+
+void listenPlayer(){
+  mySoftwareSerial.listen();
+}
+
+void listenFingerprint(){
+  mySerial.listen();
 }
 
 void startConnectToFingerprint(){
@@ -94,7 +143,7 @@ void startConnectToFingerprint(){
 }
 
 void readNumber(double num){
-  startConnectToPlayer();
+  listenPlayer();
   if(num < TempMin) excuteRead(CauThoai, 3);        //003smailler20.mp3
   else if (num > TempMax) excuteRead(CauThoai, 4);  //004bigger90.mp3)
   else {
@@ -102,6 +151,7 @@ void readNumber(double num){
     
     docSoHangChuc(num);                             //read number
     if (num - (int)num > 0){
+      excuteRead(CauThoai, 5);
       docSoHangChuc((num - (int)num)*100);
     }
     excuteRead(CauThoai, 2);                        //do C.mp3
