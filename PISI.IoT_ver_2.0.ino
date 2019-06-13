@@ -20,6 +20,7 @@ DS3231 Clock;
 
 double ambientTempC, objectTempC;
 int btnPress = 6;
+bool btnIsPressed = false;
 bool Century=false;
 bool h12;
 bool PM;
@@ -56,13 +57,14 @@ void loop() {
   Serial.print(objectTempC); Serial.print("  amb"); Serial.println(ambientTempC);
   myDFPlayer.readState();
   readNumber(objectTempC);
-  duaRaLoiKhuyen(getTypeUser(idUser), objectTempC);
-  
+  if (btnIsPressed){
+    duaRaLoiKhuyen(getTypeUser(idUser), objectTempC);
+    btnIsPressed = false;
+  }
 }
 
-bool btnPressed(){
-  if (digitalRead(btnPress)) return true;
-  return false;
+void pressBtnEvent(){
+  if (digitalRead(btnPress)) btnIsPressed = true;
 }
 
 void readTempOnly(){
@@ -75,11 +77,23 @@ void duaRaLoiKhuyen(int type, double objectTempC){
 
 //  switch(type){
 //    case 1:
+//      break;
+//    case 2:
+//      break;
+//    case 3:
+//      break;
+//    case 4 :
+//      break;
 //  }
-  
-  if (objectTempC > 40) excuteRead(CauThoai, 8);
-  else if (objectTempC > 39.5) excuteRead(CauThoai, 6);
-  else if (objectTempC > 38) excuteRead(CauThoai, 7);
+  if (objectTempC > 37){
+    if (objectTempC > 40) excuteRead(CauThoai, 8);
+    else if (objectTempC > 39.5) excuteRead(CauThoai, 6);
+    else if (objectTempC > 38) excuteRead(CauThoai, 7);
+  } else {
+    if (objectTempC < 34) excuteRead(CauThoai, 8);
+    else if (objectTempC < 35) excuteRead(CauThoai, 6);
+    else if (objectTempC < 36 ) excuteRead(CauThoai, 7);
+  }
 }
 
 int getTypeUser(int id){
@@ -98,12 +112,6 @@ int waitForDetectFingerprint(){
   int IdUser = -1;
   while(IdUser == -1){
     IdUser = getFingerprintIDez();
-    Serial.println(IdUser);
-    
-    if(btnPressed()) {
-      readTempOnly();
-      listenFingerprint();
-    }
     delay(50);
   }
   return IdUser;
@@ -182,6 +190,7 @@ void waitForPlayingFinish(){
   while (detail != DFPlayerPlayFinished){
     if (myDFPlayer.available()) 
       detail = getDetail(myDFPlayer.readType(), myDFPlayer.read());
+    pressBtnEvent();
   }
 }
 
